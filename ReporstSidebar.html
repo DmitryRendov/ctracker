@@ -1,0 +1,175 @@
+<link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons.css">
+<!-- The CSS package above applies Google styling to buttons and other elements. -->
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css">
+
+<style>
+
+body {
+    margin: 0;
+}
+
+.branding-below {
+  bottom: 54px;
+  top: 0;
+}
+
+.branding-text {
+  left: 7px;
+  position: relative;
+  top: 3px;
+}
+
+.logo {
+  vertical-align: middle;
+}
+
+.newcontent {
+  color: darkgreen; 
+}
+
+label {
+  font-weight: bold;
+}
+
+#button-bar {
+  margin-bottom: 10px;
+}
+
+#logs {
+  font-size: 0.85em;
+}
+
+#send-report {
+  display: none;
+}
+
+</style>
+
+<div class="sidebar branding-below">
+  <form>
+    <div class="block" id="dates">
+      <label for="from">From: </label>
+      <input type="text" id="from" name="from">
+      <br /><label for="to">To: </label>
+      <input type="text" id="to" name="to">
+    </div>
+    <div class="block" id="status">
+    </div>
+    <div class="block" id="button-bar">
+      <button class="action" id="show-report">Create</button>
+    </div>
+
+    <ul class="block" id="reports">
+    </ul>
+    <div class="block" id="button-bar">
+      <button class="action" id="send-report">Send via Email</button>
+    </div>
+
+  </form>
+</div>
+
+<div class="sidebar bottom">
+  <img alt="Add-on logo" class="logo" width="25"
+      src="https://googledrive.com/host/0B0G1UdyJGrY6XzdjQWF4a1JYY1k/form-notifications-logo-small.png">
+  <span class="gray branding-text">CTracker v.1.0</span>
+</div>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js"></script>
+
+<script>
+  /**
+   * On document load, assign required handlers to each element,
+   * and attempt to load any saved settings.
+   */
+  $(function() {
+    google.script.run
+      .withSuccessHandler(updateReport)
+      .withFailureHandler(showStatus)
+      .getReport();
+    $('#show-report').click(reloadReport);
+    $('#send-report').click(sendUserReport);
+
+    $("#from").datepicker({
+      maxDate: "+0D",
+      onClose: function( selectedDate ) {
+        $("#to").datepicker("option", selectedDate);
+      }
+    });
+    $("#to").datepicker({
+      maxDate: "+0D",
+      onClose: function( selectedDate ) {
+        $("#from").datepicker("option", "maxDate", selectedDate);
+      }
+    });
+    $("#from").datepicker("setDate", "-1D");
+    $("#to").datepicker("setDate", "+0D");
+  
+  });
+
+  /**
+   * Callback function that populates the logs using
+   * previously saved data in Document Properties
+   *
+   * @param {Object} settings The saved settings from the client.
+   */
+  function updateReport(reportData) {
+      $('#reports').html(reportData);
+    if (reportData != "") {
+      $('#send-report').show();
+    }
+  }
+
+  /**
+   * Reload revision history log
+   */
+  function reloadReport() {
+    var from = $("#from").datepicker('getDate').getTime();
+    var to = $("#to").datepicker('getDate').getTime() + 82800000;   //added 23:59:59 to cover the fill last day
+    if (from < to) {
+      google.script.run
+        .withSuccessHandler(updateReport)
+        .withFailureHandler(showStatus)
+        .getReport(from.toString(), to.toString());
+    } else {
+      confirm("Sorry, wrong dates!");
+      return false;
+    }
+    
+  }
+
+  /**
+   * Callback function that removes all revision history entries
+   * previously saved in Document Properties
+   */
+  function sendUserReport() {
+    if (confirm("Do you wand to get the report to your email?")) {
+      google.script.run
+        .withSuccessHandler(statusReportSending)
+        .withFailureHandler(showStatus)
+        .sendUserReport();
+    }
+    return false;
+  }
+
+  /**
+   * Reload revision history log
+   */
+  function statusReportSending(status) {
+    $('#status').html("<p>Report has been created and sent to you. Status = " + status + "</p>");
+  }
+  
+  /**
+   * Inserts a div that contains an status message after a given element.
+   *
+   * @param {String} msg The status message to display.
+   * @param {Object} element The element after which to display the Status.
+   */
+  function showStatus(msg, element) {
+     var div = $('<div>')
+         .attr('id', 'status')
+         .attr('class','error')
+         .text(msg);
+    $(element).after(div);
+  }
+</script>

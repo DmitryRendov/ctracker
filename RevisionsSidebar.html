@@ -1,0 +1,131 @@
+<link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons.css">
+<!-- The CSS package above applies Google styling to buttons and other elements. -->
+
+<style>
+
+body {
+    margin: 0;
+}
+
+.branding-below {
+  bottom: 54px;
+  top: 0;
+}
+
+.branding-text {
+  left: 7px;
+  position: relative;
+  top: 3px;
+}
+
+.logo {
+  vertical-align: middle;
+}
+
+.newcontent {
+  color: darkgreen; 
+}
+
+label {
+  font-weight: bold;
+}
+
+#button-bar {
+  margin-bottom: 10px;
+}
+
+#logs {
+  font-size: 0.85em;
+}
+
+</style>
+
+<div class="sidebar branding-below">
+  <form>
+    <div class="block">
+       <ul id="logs">
+          <li>Logs processing...</li>
+       </ul>
+    </div>
+    <div class="block" id="button-bar">
+      <button class="action" id="logs-reload">Reload</button>
+      <button class="action" id="clear-history">Clear History</button>
+    </div>
+    
+  </form>
+</div>
+
+<div class="sidebar bottom">
+  <img alt="Add-on logo" class="logo" width="25"
+      src="https://googledrive.com/host/0B0G1UdyJGrY6XzdjQWF4a1JYY1k/form-notifications-logo-small.png">
+  <span class="gray branding-text">CTracker v.1.0</span>
+</div>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js">
+</script>
+<script>
+  /**
+   * On document load, assign required handlers to each element,
+   * and attempt to load any saved settings.
+   */
+  $(function() {
+    google.script.run
+      .withSuccessHandler(updateLogs)
+      .withFailureHandler(showStatus)
+      .getLogs();
+    $('#logs-reload').click(reloadLogs);
+    $('#clear-history').click(clearHistory);
+  });
+
+  /**
+   * Callback function that populates the logs using
+   * previously saved data in Document Properties
+   *
+   * @param {Object} settings The saved settings from the client.
+   */
+  function updateLogs(logs) {
+    var list = $('#logs');
+    list.empty();
+    for (var i = 0; i < logs.length; i++) {
+      list.append('<li><a href="mailto:' + logs[i].email + '">' + logs[i].author + '</a> at ' + logs[i].date + '<br /> [' + logs[i].sheet + ']:' + logs[i].cell + ' = ' + logs[i].content + '</li>');
+    }
+  }
+
+  /**
+   * Reload revision history log
+   */
+  function reloadLogs() {
+    google.script.run
+      .withSuccessHandler(updateLogs)
+      .withFailureHandler(showStatus)
+      .getLogs();
+  }
+
+  /**
+   * Callback function that removes all revision history entries
+   * previously saved in Document Properties
+   */
+  function clearHistory() {
+    if (confirm("Are you sure?")) {
+      google.script.run
+        .withSuccessHandler(updateLogs)
+        .withFailureHandler(showStatus)
+        .resetStoreData();
+    }
+    return false;
+  }
+
+  /**
+   * Inserts a div that contains an status message after a given element.
+   *
+   * @param {String} msg The status message to display.
+   * @param {Object} element The element after which to display the Status.
+   */
+  function showStatus(msg, element) {
+     var div = $('<div>')
+         .attr('id', 'status')
+         .attr('class','error')
+         .text(msg);
+    $(element).after(div);
+  }
+</script>

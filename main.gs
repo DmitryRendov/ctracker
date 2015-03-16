@@ -10,7 +10,7 @@
 
 /**
  * A global constant String holding the title of the add-on. This is
- * used to identify the add-on in the notification emails.
+ * used to identify the add-on.
  */
 var ADDON_TITLE = 'CTracker';
 
@@ -38,13 +38,21 @@ function onOpen(e) {
       .addItem('Configure notifications', 'showSidebar')
       .addItem('About', 'showAbout')
       .addSeparator()
-      .addItem('Test item', 'menuItem')
+      .addItem('Revision history', 'showRevHistorySidebar')
+      .addItem('Reports', 'showReportsSidebar')
       .addToUi();
 }
 
-function menuItem() {
-  SpreadsheetApp.getUi() // Or DocumentApp or FormApp.
-     .alert('You clicked the first menu item!');
+function showRevHistorySidebar() {
+  var ui = HtmlService.createHtmlOutputFromFile('RevisionsSidebar')
+      .setTitle('CTracker Revisions history');
+  SpreadsheetApp.getUi().showSidebar(ui);
+}
+
+function showReportsSidebar() {
+  var ui = HtmlService.createHtmlOutputFromFile('ReporstSidebar')
+      .setTitle('CTracker Reports');
+  SpreadsheetApp.getUi().showSidebar(ui);
 }
 
 /**
@@ -66,7 +74,7 @@ function onInstall(e) {
  */
 function showSidebar() {
   var ui = HtmlService.createHtmlOutputFromFile('Sidebar')
-      .setTitle('Changes Tracker');
+      .setTitle('Change Tracker');
   SpreadsheetApp.getUi().showSidebar(ui);
 }
 
@@ -89,8 +97,13 @@ function showAbout() {
  *      pairs to store.
  */
 function saveSettings(settings) {
+
+  // If history container hasn't been initializated yet.
+  if (!settings.history) {
+    settings.history = [];
+  }
   PropertiesService.getDocumentProperties().setProperties(settings);
-  adjustFormSubmitTrigger();
+  adjustCTrackerTrigger();
 }
 
 /**
@@ -102,7 +115,8 @@ function saveSettings(settings) {
  */
 function getSettings() {
   var settings = PropertiesService.getDocumentProperties().getProperties();
-
+  var history = settings.history;
+  var history1 = settings.history[0];
   // Use a default email if the creator email hasn't been provided yet.
   if (!settings.creatorEmail) {
     settings.creatorEmail = Session.getEffectiveUser().getEmail();
@@ -114,7 +128,7 @@ function getSettings() {
 /**
  * Adjust the onFormSubmit trigger based on user's requests.
  */
-function adjustFormSubmitTrigger() {
+function adjustCTrackerTrigger() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet();
   var triggers = ScriptApp.getUserTriggers(sheet);
   var settings = PropertiesService.getDocumentProperties();
@@ -131,7 +145,7 @@ function adjustFormSubmitTrigger() {
     }
   }
   if (triggerNeeded && !existingTrigger) {
-    var trigger = ScriptApp.newTrigger('respondToFormSubmit')
+    var trigger = ScriptApp.newTrigger('respondToEditSheet')
         .forSpreadsheet(sheet)
         .onEdit()
         .create();
@@ -141,9 +155,6 @@ function adjustFormSubmitTrigger() {
   }
 }
 
- // Create a trigger for the script.
- // ScriptApp.newTrigger('myFunction').forSpreadsheet('id of my spreadsheet').onEdit().create();
- // Logger.log(ScriptApp.getProjectTriggers()[0].getHandlerFunction()); // logs "myFunction"
 
 /**
  * Responds to a form submission event if a onFormSubmit trigger has been
@@ -153,7 +164,7 @@ function adjustFormSubmitTrigger() {
  *      submission; see
  *      https://developers.google.com/apps-script/understanding_events
  */
-function respondToFormSubmit(e) {
+function respondToEditSheet(e) {
   var settings = PropertiesService.getDocumentProperties();
   var authInfo = ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL);
 
@@ -173,21 +184,55 @@ function respondToFormSubmit(e) {
     // All required authorizations has been granted, so continue to respond to
     // the trigger event.
 
-    // Check if the form creator needs to be notified; if so, construct and
-    // send the notification.
-    if (settings.getProperty('creatorNotify') == 'true') {
-      sendCreatorNotification();
+    // Check if the owner needs to be notified and the add-on is enabled; if so, update revision histiry and send the notification.
+    if (settings.getProperty('isEnabled') == 'true' && settings.getProperty('creatorNotify') == 'true' && MailApp.getRemainingDailyQuota() > 0) {
+       updateRevisionHistory();
     }
 
-    // Check if the form respondent needs to be notified; if so, construct and
-    // send the notification. Be sure to respect the remaining email quota.
-    if (settings.getProperty('respondentNotify') == 'true' &&
-        MailApp.getRemainingDailyQuota() > 0) {
-      sendRespondentNotification(e.response);
-    }
   }
 }
 
+/**
+ *
+ * 
+ */
+function getReport(from, to) {
+  var html2output = "";
+  var history = getStoreData("history");
+  var distinct = [];
+  //"Tracker settingsD4", "Tracker settingsD7", "Tracker settingsG5", "Tracker settingsH5", "Tracker settingsH6"];
+  //var key = "Tracker settingsH6";
+  var from = 1426366800000;
+  var to = 1426536000000;
+  //Browser.msgBox('from: ' + from + ' to: ' + to,  Browser.Buttons.OK);  
+  
+  for (var i = history.length-1; i > 0; i--) {
+    var ts = new Date(history[i].timestamp).valueOf().toString();
+    if  (ts > from && ts < to) {
+      var key = history[i].sheet + history[i].cell;
+      if(distinct.indexOf(key) == -1) {
+        html2output += '<li>[' + history[i].sheet + ']:' + history[i].cell + ' = ' + history[i].content + '</li>';
+        distinct.push(key);
+      }
+    }
+  }
+
+  //Browser.msgBox('html2output: ' + html2output,  Browser.Buttons.OK);
+  return html2output;
+}
+
+/**
+ *
+ * 
+ */
+function sendUserReport() {
+  var status = "";
+  
+  status = "OK";
+  
+  return status;
+
+}
 
 /**
  * Called when the user needs to reauthorize. Sends the user of the
@@ -222,9 +267,13 @@ function sendReauthorizationRequest() {
  * Sends out creator notification email(s) if the current number
  * of form responses is an even multiple of the response step
  * setting.
+ *
+ * FIXME: Need to rework this module
+ *
  */
-function sendCreatorNotification() {
-  var form = FormApp.getActiveForm();
+function updateRevisionHistory() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getActiveSheet();
   var settings = PropertiesService.getDocumentProperties();
   var responseStep = settings.getProperty('responseStep');
   responseStep = responseStep ? parseInt(responseStep) : 10;
@@ -234,8 +283,34 @@ function sendCreatorNotification() {
   // creator(s). For example, if the response step is 10, notifications
   // will be sent when there are 10, 20, 30, etc. total form responses
   // received.
-  if (form.getResponses().length % responseStep == 0) {
-    var addresses = settings.getProperty('creatorEmail').split(',');
+  
+  var addresses = settings.getProperty('creatorEmail').split(',');
+  var shhetname = sheet.getName();
+  var newcontent = ss.getActiveCell().getValue().toString();
+  if (newcontent != "") {
+    var cell = ss.getActiveCell().getA1Notation();
+    var logentry = {"sheet": sheet.getName(),
+                    "cell": ss.getActiveCell().getA1Notation(),
+                    "timestamp": new Date().valueOf(),
+                    "date": Utilities.formatDate(new Date(), "GMT", "dd MMM, HH:mm"),
+                    "author": getOwnName(),
+                    "email": Session.getEffectiveUser().getEmail(),
+                    "content": newcontent
+                   }
+    
+    var history = getStoreData("history");
+    history.push(logentry)
+    setStoreData("history", history); 
+    
+    var app = UiApp.getActiveApplication();
+    google.script.host.reloadLogs();
+
+    //Browser.msgBox('History: ' + settings.getProperty("history"),  Browser.Buttons.OK);
+    //Browser.msgBox('logentry: ' + logentry,  Browser.Buttons.OK);
+    
+  }
+
+  /*if (form.getResponses().length % responseStep == 0) {
     if (MailApp.getRemainingDailyQuota() > addresses.length) {
       var template =
           HtmlService.createTemplateFromFile('CreatorNotification');
@@ -252,35 +327,82 @@ function sendCreatorNotification() {
             name: ADDON_TITLE,
             htmlBody: message.getContent()
           });
+      Logger.log("Remaining Daily Quota = " + MailApp.getRemainingDailyQuota());
     }
-  }
+  }*/
+  
 }
 
 /**
- * Sends out respondent notificiation emails.
+ * Get stored revision history from DocumentProperties
  *
- * @param {FormResponse} response FormResponse object of the event
- *      that triggered this notification
+ * @return {Object} A collection of Property values 
+ *                  that contains revision history
  */
-function sendRespondentNotification(response) {
-  var form = FormApp.getActiveForm();
-  var settings = PropertiesService.getDocumentProperties();
-  var emailId = settings.getProperty('respondentEmailItemId');
-  var emailItem = form.getItemById(parseInt(emailId));
-  var respondentEmail = response.getResponseForItem(emailItem)
-      .getResponse();
-  if (respondentEmail) {
-    var template =
-        HtmlService.createTemplateFromFile('RespondentNotification');
-    template.paragraphs = settings.getProperty('responseText').split('\n');
-    template.notice = NOTICE;
-    var message = template.evaluate();
-    MailApp.sendEmail(respondentEmail,
-        settings.getProperty('responseSubject'),
-        message.getContent(), {
-          name: form.getTitle(),
-            htmlBody: message.getContent()
-        });
-  }
+function getLogs(){
+  var logs = getStoreData("history")
+  return logs;
 }
 
+/**
+ * Reset saved revision histiry from DocumentProperties
+ *
+ * TO-DO: Added info who reset logs
+ */
+function resetStoreData(){
+  var emptyarr = [];
+  setStoreData("history", emptyarr);
+}
+
+
+/**
+ * Store data at some point in the application    
+ *
+ * @param {Object} storageName A name of propery
+ * @param {Object} data2store JSON object to store
+ */
+function setStoreData(storageName, data2store){   
+  PropertiesService   
+   .getDocumentProperties()   
+   .setProperty(storageName, JSON.stringify(data2store));  
+}   
+    
+/**
+ * Read stored data as JSON at some point in the application    
+ *
+ * @param {Object} storageName A name of propery
+ * @return {Object} A collection of Property values
+ */
+function getStoreData(storageName){   
+  var data = JSON.parse(PropertiesService   
+                  .getDocumentProperties()   
+                  .getProperty(storageName)   
+                 );   
+  return data;    
+}   
+
+/**
+ * Get current user's name, by accessing their contacts.
+ *
+ * @returns {String} First name (GivenName) if available,
+ *                   else FullName, or login ID (userName)
+ *                   if record not found in contacts.
+ */
+function getOwnName(){
+  var email = Session.getEffectiveUser().getEmail();
+  var self = ContactsApp.getContact(email);
+
+  // If user has themselves in their contacts, return their name
+  if (self) {
+    // Prefer given name, if that's available
+    var name = self.getFullName();
+    // But we will settle for the full name
+    if (!name) name = self.getGivenName();
+    return name;
+  }
+  // If they don't have themselves in Contacts, return the bald userName.
+  else {
+    var userName = Session.getEffectiveUser().getUsername();
+    return userName;
+  }
+}
