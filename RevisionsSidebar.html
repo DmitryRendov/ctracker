@@ -1,7 +1,7 @@
 <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons.css">
 <!-- The CSS package above applies Google styling to buttons and other elements. -->
 
-<style>
+<style type="text/css">
 
 body {
     margin: 0;
@@ -30,29 +30,68 @@ label {
   font-weight: bold;
 }
 
-#button-bar {
-  margin-bottom: 10px;
+.button-bar {
+  margin: 0 auto;
+  padding: 10px 0;
+  text-align: center;
+  position: relative;
 }
 
-#logs {
+.rev-history {
   font-size: 0.85em;
+}
+
+#send-report {
+  display: none;
+}
+
+.docs-revisions-tile {
+  padding: 3px 0px;
+  border-color: #ddd;
+  border-style: solid;
+  border-width: 0 0 1px 0;
+  outline: none;
+}
+
+.docs-revisions-tile-history {
+  font-size: 0.9em;
+}
+
+.docs-revisions-tile-timestamp {
+  color: black;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.docs-revisions-tile-collaborator {
+  font-size: 11px;
+  color: #808080;
+  margin-right: 8px;
+}
+
+.docs-revisions-tile-swatch {
+  width: 8px;
+  height: 8px;
+  position: relative;
+  top: 5px;
+  float: left;
+  margin-right: 3px;
 }
 
 </style>
 
+
 <div class="sidebar branding-below">
   <form>
-    <div class="block">
-       <ul id="logs">
-          <li>Logs processing...</li>
-       </ul>
-    </div>
-    <div class="block" id="button-bar">
+    <div class="block" class="button-bar">
       <button class="action" id="logs-reload">Reload</button>
       <button class="action" id="clear-history">Clear History</button>
+      <!-- <button class="action" id="clear-history">Clear History</button> -->
     </div>
-    
   </form>
+    <div class="block rev-history" id="rev-history">
+       <span>Processing...</span>
+    </div>
 </div>
 
 <div class="sidebar bottom">
@@ -84,10 +123,14 @@ label {
    * @param {Object} settings The saved settings from the client.
    */
   function updateLogs(logs) {
-    var list = $('#logs');
-    list.empty();
-    for (var i = 0; i < logs.length; i++) {
-      list.append('<li><a href="mailto:' + logs[i].email + '">' + logs[i].author + '</a> at ' + logs[i].date + '<br /> [' + logs[i].sheet + ']:' + logs[i].cell + ' = ' + logs[i].content + '</li>');
+    var html = $('#rev-history');
+    html.empty();
+    for (var i = logs.length-1; i >= 0; i--) {
+     html.append('<div class="docs-revisions-tile" role="option"> \
+        <span class="docs-revisions-tile-timestamp">' + logs[i].date + '</span> \
+        <!-- <div class="docs-revisions-tile-collaborator"><div class="docs-revisions-tile-swatch" style="background-color: #1FA15D;"></div><a href="mailto:' + logs[i].email + '">' + logs[i].author + '</a></div> --> \
+        <div class="docs-revisions-tile-history">[' + logs[i].sheet + ']:' + logs[i].cell + ' = ' + logs[i].content + '</div> \
+      </div>');
     }
   }
 
@@ -95,6 +138,7 @@ label {
    * Reload revision history log
    */
   function reloadLogs() {
+    $('#rev-history').html("<span>Processing...</span>");
     google.script.run
       .withSuccessHandler(updateLogs)
       .withFailureHandler(showStatus)

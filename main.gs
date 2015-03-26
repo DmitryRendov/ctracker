@@ -18,11 +18,12 @@ var ADDON_TITLE = 'CTracker';
  * A global constant 'notice' text to include with each email
  * notification.
  */
-var NOTICE = "CTracker was created as an add-on to check \
-changes in an sheet and notify an owner about changes. \
+var NOTICE = "CTracker was created as an add-on to track \
+changes in a spreadsheet and notify an owner about changes. \
 This is an experimental module. Collaborators using this add-on on \
-the same form will be able to adjust the notification settings, but will not be \
-able to disable the notification triggers set by other collaborators.";
+the same spreadsheet will be able to adjust the notification settings, \
+but will not be able to disable the notification triggers set by other collaborators.\
+                                                        EPAM IDEO-JSUP team";
 
 
 /**
@@ -35,23 +36,23 @@ able to disable the notification triggers set by other collaborators.";
 function onOpen(e) {
   var ui = SpreadsheetApp.getUi();
   ui.createAddonMenu()
-      .addItem('Configure notifications', 'showSidebar')
-      .addItem('About', 'showAbout')
-      .addSeparator()
       .addItem('Revision history', 'showRevHistorySidebar')
       .addItem('Reports', 'showReportsSidebar')
+      .addSeparator()
+      .addItem('Configuration', 'showSidebar')
+      .addItem('About', 'showAbout')
       .addToUi();
 }
 
 function showRevHistorySidebar() {
   var ui = HtmlService.createHtmlOutputFromFile('RevisionsSidebar')
-      .setTitle('CTracker Revisions history');
+      .setTitle('Revision history');
   SpreadsheetApp.getUi().showSidebar(ui);
 }
 
 function showReportsSidebar() {
-  var ui = HtmlService.createHtmlOutputFromFile('ReporstSidebar')
-      .setTitle('CTracker Reports');
+  var ui = HtmlService.createHtmlOutputFromFile('ReportsSidebar')
+      .setTitle('Reports');
   SpreadsheetApp.getUi().showSidebar(ui);
 }
 
@@ -74,7 +75,7 @@ function onInstall(e) {
  */
 function showSidebar() {
   var ui = HtmlService.createHtmlOutputFromFile('Sidebar')
-      .setTitle('Change Tracker');
+      .setTitle('Add-on configuration');
   SpreadsheetApp.getUi().showSidebar(ui);
 }
 
@@ -90,18 +91,13 @@ function showAbout() {
 }
 
 /**
- * Save sidebar settings to this form's Properties, and update the onFormSubmit
+ * Save sidebar settings to this form's Properties, and update the onEdit
  * trigger as needed.
  *
  * @param {Object} settings An Object containing key-value
  *      pairs to store.
  */
 function saveSettings(settings) {
-
-  // If history container hasn't been initializated yet.
-  if (!settings.history) {
-    settings.history = [];
-  }
   PropertiesService.getDocumentProperties().setProperties(settings);
   adjustCTrackerTrigger();
 }
@@ -115,21 +111,21 @@ function saveSettings(settings) {
  */
 function getSettings() {
   var settings = PropertiesService.getDocumentProperties().getProperties();
-  var history = settings.history;
-  var history1 = settings.history[0];
+
   // Use a default email if the creator email hasn't been provided yet.
   if (!settings.creatorEmail) {
-    settings.creatorEmail = Session.getEffectiveUser().getEmail();
+    settings.creatorEmail = Session.getActiveUser().getEmail();
   }
 
   return settings;
 }
 
 /**
- * Adjust the onFormSubmit trigger based on user's requests.
+ * Adjust the onEdit trigger based on user's requests.
  */
 function adjustCTrackerTrigger() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet();
+  //FIXME: !Critical! Avoid multiple triggers for each user who is configuring the add-on
   var triggers = ScriptApp.getUserTriggers(sheet);
   var settings = PropertiesService.getDocumentProperties();
   var triggerNeeded =
@@ -149,7 +145,8 @@ function adjustCTrackerTrigger() {
         .forSpreadsheet(sheet)
         .onEdit()
         .create();
-    Logger.log(ScriptApp.getProjectTriggers()[0].getHandlerFunction());
+    Logger.log('Trigger id = ' + trigger.getUniqueId() + ' set handler = ' + ScriptApp.getProjectTriggers()[0].getHandlerFunction());
+    settings.setProperty('triggerId', trigger.getUniqueId());
   } else if (!triggerNeeded && existingTrigger) {
     ScriptApp.deleteTrigger(existingTrigger);
   }
@@ -157,7 +154,7 @@ function adjustCTrackerTrigger() {
 
 
 /**
- * Responds to a form submission event if a onFormSubmit trigger has been
+ * Responds to a form submission event if a respondToEditSheet trigger has been
  * enabled.
  *
  * @param {Object} e The event parameter created by a form
@@ -185,7 +182,7 @@ function respondToEditSheet(e) {
     // the trigger event.
 
     // Check if the owner needs to be notified and the add-on is enabled; if so, update revision histiry and send the notification.
-    if (settings.getProperty('isEnabled') == 'true' && settings.getProperty('creatorNotify') == 'true' && MailApp.getRemainingDailyQuota() > 0) {
+    if (settings.getProperty('isEnabled') == 'true') {
        updateRevisionHistory();
     }
 
@@ -193,43 +190,101 @@ function respondToEditSheet(e) {
 }
 
 /**
+ * Make report about sheets and cells that have been changed
+ * for some period of time
  *
- * 
+ * @param {Object} from Timestamp from 
+ * @param {Object} to Timestamp to
+ *
+ * @return {Object} HTML table with ready report
  */
 function getReport(from, to) {
-  var html2output = "";
-  var history = getStoreData("history");
   var distinct = [];
-  //"Tracker settingsD4", "Tracker settingsD7", "Tracker settingsG5", "Tracker settingsH5", "Tracker settingsH6"];
-  //var key = "Tracker settingsH6";
-  var from = 1426366800000;
-  var to = 1426536000000;
-  //Browser.msgBox('from: ' + from + ' to: ' + to,  Browser.Buttons.OK);  
-  
-  for (var i = history.length-1; i > 0; i--) {
-    var ts = new Date(history[i].timestamp).valueOf().toString();
-    if  (ts > from && ts < to) {
-      var key = history[i].sheet + history[i].cell;
-      if(distinct.indexOf(key) == -1) {
-        html2output += '<li>[' + history[i].sheet + ']:' + history[i].cell + ' = ' + history[i].content + '</li>';
-        distinct.push(key);
-      }
+  var body = '';
+  var data = filterData(from, to);
+
+  // FIXME: Hide table header if in history only one System Event record about erasing history logs
+  if (data.length > 0) {
+    body  = '<table class="report-table" id="report" cellspacing="0"><thead><tr>';
+    body += '<th>Sheet</th>';
+    body += '<th>Cell</th>';
+    body += '</tr></thead><tbody>';
+    for (var i = 0; i < data.length; i++) {
+      body += '<tr>';
+      body += '<td><a href="#" data-sheet="' + data[i].sheet + '" data-cell="' + data[i].cell + '" title="Changed in ' + data[i].date + '">' + data[i].sheet + '</a></td>';
+      body += '<td>' + data[i].cell + '</td>';
+      body += '</tr>';
     }
+    body += '</tbody></table>';
   }
 
-  //Browser.msgBox('html2output: ' + html2output,  Browser.Buttons.OK);
-  return html2output;
+  return body;
 }
 
 /**
+ * Filter distinct data from revision history between the dates
  *
- * 
+ * @param {Object} from Timestamp from 
+ * @param {Object} to Timestamp to
+ *
+ * @return {Object} Part of revision history data between the dates ordered desc
  */
-function sendUserReport() {
+function filterData(from, to) {
+  var history = getStoreData("history");
+  var distinct = [];
+  var results = [];
+  if (history.length > 0) {
+    for (var i = history.length-1; i >= 0; i--) {
+      var ts = new Date(history[i].timestamp).valueOf();
+      if  (ts.toString() > from && ts.toString() < to) {
+        var key = history[i].sheet + history[i].cell;
+        if(distinct.indexOf(key) == -1 && history[i].sheet != 'System') {
+          results.push(history[i]);
+          distinct.push(key);
+        }
+      }
+    }
+  }
+  return results;
+}
+
+/**
+ * Send a report to users in creatorEmail property
+ * with revision history detailed data for 
+ * some period of time
+ *
+ * @param {Object} from Timestamp from 
+ * @param {Object} to Timestamp to
+ */
+function sendUserReport(from, to) {
+  var settings = PropertiesService.getDocumentProperties();
+  var addresses = settings.getProperty('creatorEmail').split(',');
   var status = "";
-  
-  status = "OK";
-  
+
+  if (MailApp.getRemainingDailyQuota() > addresses.length && settings.getProperty('creatorNotify') == 'true') {
+    var template = HtmlService.createTemplateFromFile('ReportNotification');
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    template.sheetName = ss.getName();
+    template.sheetURL = ss.getUrl();  
+    template.from = Utilities.formatDate(new Date(from), "GMT+04", "dd MMM, HH:mm");
+    template.to = Utilities.formatDate(new Date(to), "GMT+04", "dd MMM, HH:mm");
+    template.data = filterData(from, to);
+    template.notice = NOTICE;
+    
+    var message = template.evaluate();
+    MailApp.sendEmail(addresses,
+          'Changes report',
+          message.getContent(), {
+            name: ADDON_TITLE,
+            htmlBody: message.getContent()
+          });
+    status = 'Successfully sent to ' + addresses + '. Remaining Daily Quota = ' + MailApp.getRemainingDailyQuota();
+
+    //Browser.msgBox('Message: ' + message.getContent(),  Browser.Buttons.OK);  
+    //Browser.msgBox('Message: ' + status,  Browser.Buttons.OK);
+  }
+    
   return status;
 
 }
@@ -252,7 +307,7 @@ function sendReauthorizationRequest() {
       template.url = authInfo.getAuthorizationUrl();
       template.notice = NOTICE;
       var message = template.evaluate();
-      MailApp.sendEmail(Session.getEffectiveUser().getEmail(),
+      MailApp.sendEmail(Session.getActiveUser().getEmail(),
           'Authorization Required',
           message.getContent(), {
             name: ADDON_TITLE,
@@ -264,35 +319,21 @@ function sendReauthorizationRequest() {
 }
 
 /**
- * Sends out creator notification email(s) if the current number
- * of form responses is an even multiple of the response step
- * setting.
- *
- * FIXME: Need to rework this module
- *
+ * Update revision history every time when a user edits 
+ * cell and this change is saved.
  */
 function updateRevisionHistory() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getActiveSheet();
   var settings = PropertiesService.getDocumentProperties();
-  var responseStep = settings.getProperty('responseStep');
-  responseStep = responseStep ? parseInt(responseStep) : 10;
-
-  // If the total number of form responses is an even multiple of the
-  // response step setting, send a notification email(s) to the form
-  // creator(s). For example, if the response step is 10, notifications
-  // will be sent when there are 10, 20, 30, etc. total form responses
-  // received.
   
-  var addresses = settings.getProperty('creatorEmail').split(',');
-  var shhetname = sheet.getName();
   var newcontent = ss.getActiveCell().getValue().toString();
   if (newcontent != "") {
     var cell = ss.getActiveCell().getA1Notation();
     var logentry = {"sheet": sheet.getName(),
                     "cell": ss.getActiveCell().getA1Notation(),
                     "timestamp": new Date().valueOf(),
-                    "date": Utilities.formatDate(new Date(), "GMT", "dd MMM, HH:mm"),
+                    "date": Utilities.formatDate(new Date(), "GMT+04", "dd MMM, HH:mm"),
                     "author": getOwnName(),
                     "email": Session.getEffectiveUser().getEmail(),
                     "content": newcontent
@@ -302,34 +343,11 @@ function updateRevisionHistory() {
     history.push(logentry)
     setStoreData("history", history); 
     
-    var app = UiApp.getActiveApplication();
-    google.script.host.reloadLogs();
-
-    //Browser.msgBox('History: ' + settings.getProperty("history"),  Browser.Buttons.OK);
-    //Browser.msgBox('logentry: ' + logentry,  Browser.Buttons.OK);
+    // FIXME: Update revision history if this sidebar is open
+    //var app = UiApp.getActiveApplication();
+    //google.script.host.reloadLogs();
     
   }
-
-  /*if (form.getResponses().length % responseStep == 0) {
-    if (MailApp.getRemainingDailyQuota() > addresses.length) {
-      var template =
-          HtmlService.createTemplateFromFile('CreatorNotification');
-      template.summary = form.getSummaryUrl();
-      template.responses = form.getResponses().length;
-      template.title = form.getTitle();
-      template.responseStep = responseStep;
-      template.formUrl = form.getEditUrl();
-      template.notice = NOTICE;
-      var message = template.evaluate();
-      MailApp.sendEmail(settings.getProperty('creatorEmail'),
-          form.getTitle() + ': Form submissions detected',
-          message.getContent(), {
-            name: ADDON_TITLE,
-            htmlBody: message.getContent()
-          });
-      Logger.log("Remaining Daily Quota = " + MailApp.getRemainingDailyQuota());
-    }
-  }*/
   
 }
 
@@ -345,13 +363,22 @@ function getLogs(){
 }
 
 /**
- * Reset saved revision histiry from DocumentProperties
- *
- * TO-DO: Added info who reset logs
+ * Reset saved revision history from DocumentProperties
+ * and saved who did that
+ * To-Do: Allow clear history only for EPAM team only
  */
 function resetStoreData(){
-  var emptyarr = [];
-  setStoreData("history", emptyarr);
+  var resetarray = [{
+    "sheet": "System",
+    "cell": "event",
+    "timestamp": new Date().valueOf(),
+    "date": Utilities.formatDate(new Date(), "GMT+04", "dd MMM, HH:mm"),
+    "author": getOwnName(),
+    "email": Session.getEffectiveUser().getEmail(),
+    "content": '<span style="color:red;font-weight:bold;">Revision history has been cleared!</span>'
+  }];
+  setStoreData("history", resetarray);
+  return resetarray;
 }
 
 
@@ -389,7 +416,7 @@ function getStoreData(storageName){
  *                   if record not found in contacts.
  */
 function getOwnName(){
-  var email = Session.getEffectiveUser().getEmail();
+  var email = Session.getActiveUser().getEmail();
   var self = ContactsApp.getContact(email);
 
   // If user has themselves in their contacts, return their name
@@ -406,3 +433,29 @@ function getOwnName(){
     return userName;
   }
 }
+
+function getEmailBodyForError (error) {
+  
+  var body = "message : " + error.message + " " + error.stack;
+  body = body + "file :" + error.fileName + "\n";
+  body = body + "line :" + error.lineNumber + "\n";
+  body = body + "\n";
+  
+  return body;
+}
+
+/**
+ * FIXME: Doesn't work
+ */
+function doGet(request) {
+  return HtmlService.createTemplateFromFile('Page')
+      .evaluate();
+}
+
+/**
+ * FIXME: Doesn't work
+ */
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+

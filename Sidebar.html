@@ -20,7 +20,7 @@
 .width-100 {
   width: 100%;
   box-sizing: border-box;
-  -webkit-box-sizing : border-box;?
+  -webkit-box-sizing : border-box;‌
   -moz-box-sizing : border-box;
 }
 
@@ -52,6 +52,10 @@ label {
   display: inline;
 }
 
+.hidden {
+  display: none;
+}
+
 </style>
 
 <div class="sidebar branding-below">
@@ -69,10 +73,11 @@ label {
         A list of email addresses (comma-separated)
       </label>
       <input type="text" class="width-100" id="creator-email">
+      <div class="">
       <label for="response-step">Send notifications after every</label>
       <input type="number" id="response-step" value="10"
-          min="1" max="99999"> changes (default 10) 
-      <div class="red">(Not implemented)</div>
+          min="1" max="99999" styles="display:none;"><span> changes (default 10)</span>
+      </div>
     </div>
 
     <div class="block" id="button-bar">
@@ -82,8 +87,8 @@ label {
 </div>
 
 <div class="sidebar bottom">
-  <img alt="Add-on logo" class="logo" width="25"
-      src="https://googledrive.com/host/0B0G1UdyJGrY6XzdjQWF4a1JYY1k/form-notifications-logo-small.png">
+  <img alt="Add-on logo" class="logo" width="64"
+      src="https://developers.google.com/apps-script/images/icons/spreadsheets-64.png">
   <span class="gray branding-text">CTracker v.1.0</span>
 </div>
 

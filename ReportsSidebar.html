@@ -1,0 +1,292 @@
+<link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons.css">
+<!-- The CSS package above applies Google styling to buttons and other elements. -->
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css">
+
+<style type="text/css">
+
+body {
+    margin: 0;
+}
+
+.branding-below {
+  bottom: 54px;
+  top: 0;
+}
+
+.branding-text {
+  left: 7px;
+  position: relative;
+  top: 3px;
+}
+
+.logo {
+  vertical-align: middle;
+}
+
+.newcontent {
+  color: darkgreen; 
+}
+
+label {
+  font-weight: bold;
+}
+
+#button-bar {
+  margin: 10px 0;
+}
+
+#logs {
+  font-size: 0.85em;
+}
+
+#send-report {
+  display: none;
+}
+
+.report-table {
+  width: 100%;
+}
+
+label {
+  display: inline-block;
+  width: 5em;
+}
+
+table a:link {
+	color: #666;
+	font-weight: bold;
+	text-decoration:none;
+}
+table a:visited {
+	color: #999999;
+	font-weight:bold;
+	text-decoration:none;
+}
+table a:active,
+table a:hover {
+	color: #bd5a35;
+	text-decoration:underline;
+}
+table {
+	font-family:Arial, Helvetica, sans-serif;
+	color:#666;
+	font-size:12px;
+	text-shadow: 1px 1px 0px #fff;
+	background:#eaebec;
+	margin: 0px;
+	border:#ccc 1px solid;
+
+	-moz-border-radius:3px;
+	-webkit-border-radius:3px;
+	border-radius:3px;
+
+	-moz-box-shadow: 0 1px 2px #d1d1d1;
+	-webkit-box-shadow: 0 1px 2px #d1d1d1;
+	box-shadow: 0 1px 2px #d1d1d1;
+}
+table th {
+	padding: 5px;
+	border-top:1px solid #fafafa;
+	border-bottom:1px solid #e0e0e0;
+
+	background: #ededed;
+	background: -webkit-gradient(linear, left top, left bottom, from(#ededed), to(#ebebeb));
+	background: -moz-linear-gradient(top,  #ededed,  #ebebeb);
+}
+table th:first-child{
+	text-align: left;
+	padding-left:5px;
+}
+table tr:first-child th:first-child{
+	-moz-border-radius-topleft:3px;
+	-webkit-border-top-left-radius:3px;
+	border-top-left-radius:3px;
+}
+table tr:first-child th:last-child{
+	-moz-border-radius-topright:3px;
+	-webkit-border-top-right-radius:3px;
+	border-top-right-radius:3px;
+}
+table tr{
+	text-align: center;
+	padding-left:5px;
+}
+table tr td:first-child{
+	text-align: left;
+	padding-left:5px;
+	border-left: 0;
+}
+table tr td {
+	padding:5px;
+	border-top: 1px solid #ffffff;
+	border-bottom:1px solid #e0e0e0;
+	border-left: 1px solid #e0e0e0;
+	
+	background: #fafafa;
+	background: -webkit-gradient(linear, left top, left bottom, from(#fbfbfb), to(#fafafa));
+	background: -moz-linear-gradient(top,  #fbfbfb,  #fafafa);
+}
+table tr.even td{
+	background: #f6f6f6;
+	background: -webkit-gradient(linear, left top, left bottom, from(#f8f8f8), to(#f6f6f6));
+	background: -moz-linear-gradient(top,  #f8f8f8,  #f6f6f6);
+}
+table tr:last-child td{
+	border-bottom:0;
+}
+table tr:last-child td:first-child{
+	-moz-border-radius-bottomleft:3px;
+	-webkit-border-bottom-left-radius:3px;
+	border-bottom-left-radius:3px;
+}
+table tr:last-child td:last-child{
+	-moz-border-radius-bottomright:3px;
+	-webkit-border-bottom-right-radius:3px;
+	border-bottom-right-radius:3px;
+}
+table tr:hover td{
+	background: #f2f2f2;
+	background: -webkit-gradient(linear, left top, left bottom, from(#f2f2f2), to(#f0f0f0));
+	background: -moz-linear-gradient(top,  #f2f2f2,  #f0f0f0);	
+}
+</style>
+
+
+<div class="sidebar branding-below">
+  <form>
+    <div class="block" id="dates">
+      <label for="from">From: </label>
+      <input type="text" id="from" name="from">
+      <br /><label for="to">To: </label>
+      <input type="text" id="to" name="to">
+    </div>
+    
+    <div class="block" id="button-bar">
+      <button class="action" id="show-report">Create</button>
+    </div>
+
+    <div class="block" id="report-title"></div>
+    <div class="block" id="report-table"><span>Processing...</span></div>
+
+    <div class="block" id="button-bar">
+      <button class="action" id="send-report">Send via Email</button>
+    </div>
+
+    <div class="block" id="status">
+    </div>
+
+  </form>
+</div>
+
+<div class="sidebar bottom">
+  <img alt="Add-on logo" class="logo" width="25"
+      src="https://googledrive.com/host/0B0G1UdyJGrY6XzdjQWF4a1JYY1k/form-notifications-logo-small.png">
+  <span class="gray branding-text">CTracker v.1.0</span>
+</div>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/jquery-ui.min.js"></script>
+
+<script>
+  /**
+   * On document load, assign required handlers to each element,
+   * and attempt to load any saved settings.
+   */
+  $(function() {
+  
+    $("#from").datepicker({
+      maxDate: "+0D",
+      onClose: function( selectedDate ) {
+        $("#to").datepicker("option", selectedDate);
+      }
+    });
+    $("#to").datepicker({
+      maxDate: "+0D",
+      onClose: function( selectedDate ) {
+        $("#from").datepicker("option", "maxDate", selectedDate);
+      }
+    });
+    $("#from").datepicker("setDate", "-1D");
+    $("#to").datepicker("setDate", "+0D");
+
+    google.script.run
+      .withSuccessHandler(reloadReport)
+      .withFailureHandler(showStatus)
+      .getReport();
+    $('#show-report').click(reloadReport);
+    $('#send-report').click(sendUserReport);
+    
+  
+  });
+
+  /**
+   * Callback function that populates the logs using
+   * previously saved data in Document Properties
+   *
+   * @param {Object} settings The saved settings from the client.
+   */
+  function updateReport(response) {
+    if (response != "") {
+      $('#report-table').html(response);
+      $('#send-report').show();
+      $('#status').html("");
+    }
+  }
+
+  /**
+   * Reload revision history log
+   */
+  function reloadReport() {
+    var from = $("#from").datepicker('getDate').getTime();
+    var to = $("#to").datepicker('getDate').getTime() + 82800000;   //added 23:59:59 to cover the fill last day
+    if (from < to) {
+       $('#report-table').html('<span>Processing...</span>');
+      google.script.run
+        .withSuccessHandler(updateReport)
+        .withFailureHandler(showStatus)
+        .getReport(from.toString(), to.toString());
+    } else {
+      confirm("Sorry, wrong dates!");
+      return false;
+    }
+    
+  }
+
+  /**
+   * Callback function that removes all revision history entries
+   * previously saved in Document Properties
+   */
+  function sendUserReport() {
+    if (confirm("Do you wand to get the report to your email?")) {
+      var from = $("#from").datepicker('getDate').getTime();
+      var to = $("#to").datepicker('getDate').getTime() + 82800000 - 1;   //added 23:59:59 to cover the fill last day
+      google.script.run
+        .withSuccessHandler(statusReportSending)
+        .withFailureHandler(showStatus)
+        .sendUserReport(from, to);
+    }
+    return false;
+  }
+
+  /**
+   * Reload revision history log
+   */
+  function statusReportSending(status) {
+     $('#send-report').hide("fast");
+     $('#status').html("<p>" + status + "</p>").delay(5000).fadeOut();
+  }
+  
+  /**
+   * Inserts a div that contains an status message after a given element.
+   *
+   * @param {String} msg The status message to display.
+   * @param {Object} element The element after which to display the Status.
+   */
+  function showStatus(msg, element) {
+     var div = $('<div>')
+         .attr('id', 'status')
+         .attr('class','error')
+         .text(msg);
+    $(element).after(div);
+  }
+</script>
