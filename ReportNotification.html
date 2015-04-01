@@ -1,11 +1,13 @@
+<body style="background: #fff; color: #333; font-size: 12px; font-family: Arial, verdana, sans-serif; line-height: 16px; margin: 0px; padding: 0px;">
 <h2>Change Report for <a href="<?= sheetURL ?>">"<?= sheetName ?>"</a></h2>
 <h3>from <?= from ?> to <?= to ?></h3>
 
-<table cellspacing="0">
+<div style="padding: 0 36px;">
+<table cellspacing="0" cellpadding="5" border="0" width="100%" style="margin: 0 auto; border:1px solid #ddd;">
 <thead><tr><th>Date</th><th>Sheet</th><th>Cell</th><th>Content</th></tr></thead>
   <tbody>
   <? for (var i = 0; i < data.length; i++) { ?>
-    <tr>
+    <tr style="text-align:left;">
         <td><?= data[i].date ?></td>
         <td><?= data[i].sheet ?></td>
         <td><?= data[i].cell ?></td>
@@ -14,17 +16,20 @@
   <? } ?>
  </tbody>
 </table>
+</div>
 
 <p>You are receiving this email because an editor of this spreadsheet configured
 <i>CTracker</i> to alert you every time someone has been requested report by
 email.</p>
 
 <p>To change this setting, or to stop receiving these notifications, have the
-spreadsheet owner or editors open the spreadsheet and adjust the <i>CTracker</i>
+spreadsheet owner or admins open the spreadsheet and adjust the <i>CTracker</i>
 add-on configuration via the "Configuration" menu item.</p>
 
 <hr>
-
+<div style="color: #999; font-family: Arial, verdana, sans-serif; font-size : 12px; line-height :15px; padding: 0 36px;">
 <p style="font-size:80%">This automatic message was sent to you via the 
 <i>CTracker</i> add-on for Google Spreadsheet.
 <?= notice ?></p>
+</div>
+</body>

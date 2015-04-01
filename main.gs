@@ -15,46 +15,22 @@
 var ADDON_TITLE = 'CTracker';
 
 /**
+ * An admin email that is for a user who can configure add-on and enable 
+ * it.
+ */
+var ADMIN_EMAIL = 'drendov@gmail.com';
+
+/**
  * A global constant 'notice' text to include with each email
  * notification.
  */
 var NOTICE = "CTracker was created as an add-on to track \
 changes in a spreadsheet and notify an owner about changes. \
 This is an experimental module. Collaborators using this add-on on \
-the same spreadsheet will be able to adjust the notification settings, \
-but will not be able to disable the notification triggers set by other collaborators.\
-                                                        EPAM IDEO-JSUP team";
-
-
-/**
- * Adds a custom menu to the active form to show the add-on sidebar.
- *
- * @param {object} e The event parameter for a simple onOpen trigger. To
- *     determine which authorization mode (ScriptApp.AuthMode) the trigger is
- *     running in, inspect e.authMode.
- */
-function onOpen(e) {
-  var ui = SpreadsheetApp.getUi();
-  ui.createAddonMenu()
-      .addItem('Revision history', 'showRevHistorySidebar')
-      .addItem('Reports', 'showReportsSidebar')
-      .addSeparator()
-      .addItem('Configuration', 'showSidebar')
-      .addItem('About', 'showAbout')
-      .addToUi();
-}
-
-function showRevHistorySidebar() {
-  var ui = HtmlService.createHtmlOutputFromFile('RevisionsSidebar')
-      .setTitle('Revision history');
-  SpreadsheetApp.getUi().showSidebar(ui);
-}
-
-function showReportsSidebar() {
-  var ui = HtmlService.createHtmlOutputFromFile('ReportsSidebar')
-      .setTitle('Reports');
-  SpreadsheetApp.getUi().showSidebar(ui);
-}
+the same spreadsheet will be able to look through revisions history, \
+but will not be able to send report to anywhere else except \
+emails that were set by admin of this add-on. \
+                                                        OIE SUP team";
 
 /**
  * Runs when the add-on is installed.
@@ -70,11 +46,57 @@ function onInstall(e) {
 }
 
 /**
- * Opens a sidebar in the form containing the add-on's user interface for
+ * Adds a custom menu to the active spreadsheet to show the add-on sidebars.
+ *
+ * @param {object} e The event parameter for a simple onOpen trigger. To
+ *     determine which authorization mode (ScriptApp.AuthMode) the trigger is
+ *     running in, inspect e.authMode.
+ */
+function onOpen(e) {
+  var ui = SpreadsheetApp.getUi();
+  var menu = SpreadsheetApp.getUi().createAddonMenu(); 
+  if (e && e.authMode == ScriptApp.AuthMode.NONE) {
+    menu.addItem('Please, authorize add-on', 'showRevHistorySidebar');
+    menu.addItem('About', 'showAbout');
+  } else {
+    menu.addItem('Revision history', 'showRevHistorySidebar');
+    menu.addItem('Reports', 'showReportsSidebar');
+    if (isAdmin()) {
+      menu.addSeparator();
+      menu.addItem('Configuration', 'showConfigurationSidebar');
+    }
+    menu.addSeparator();
+    menu.addItem('About', 'showAbout');
+   } 
+  menu.addToUi();
+}
+
+/**
+ * Opens a sidebar in the sheet containing the revisions history interface for
+ * looking trough changes that have been done during the time when the add-on was active.
+ */
+function showRevHistorySidebar() {
+  var ui = HtmlService.createHtmlOutputFromFile('RevisionsSidebar')
+      .setTitle('Revision history');
+  SpreadsheetApp.getUi().showSidebar(ui);
+}
+
+/**
+ * Opens a sidebar in the sheet containing the reports interface for
+ * making and sendig detailed reports about changes for some period of time.
+ */
+function showReportsSidebar() {
+  var ui = HtmlService.createHtmlOutputFromFile('ReportsSidebar')
+      .setTitle('Reports');
+  SpreadsheetApp.getUi().showSidebar(ui);
+}
+
+/**
+ * Opens a sidebar in the sheet containing the add-on's user interface for
  * configuring the notifications this add-on will produce.
  */
-function showSidebar() {
-  var ui = HtmlService.createHtmlOutputFromFile('Sidebar')
+function showConfigurationSidebar() {
+  var ui = HtmlService.createHtmlOutputFromFile('ConfigurationSidebar')
       .setTitle('Add-on configuration');
   SpreadsheetApp.getUi().showSidebar(ui);
 }
@@ -118,6 +140,21 @@ function getSettings() {
   }
 
   return settings;
+}
+
+/**
+ * Is a user an admin fo the add-on.
+ *
+ * @return {Object} 'true' if an active user is an admin
+ */
+function isAdmin() {
+  var isAdmin = false;
+  
+  if (ADMIN_EMAIL === Session.getActiveUser().getEmail()) {
+    isAdmin = true;
+  }
+  
+  return isAdmin;   
 }
 
 /**
@@ -222,7 +259,8 @@ function getReport(from, to) {
 }
 
 /**
- * Filter distinct data from revision history between the dates
+ * Filter distinct data from revision history
+ * between the dates 'from' and 'to'
  *
  * @param {Object} from Timestamp from 
  * @param {Object} to Timestamp to
@@ -281,8 +319,9 @@ function sendUserReport(from, to) {
           });
     status = 'Successfully sent to ' + addresses + '. Remaining Daily Quota = ' + MailApp.getRemainingDailyQuota();
 
-    //Browser.msgBox('Message: ' + message.getContent(),  Browser.Buttons.OK);  
     //Browser.msgBox('Message: ' + status,  Browser.Buttons.OK);
+  } else {
+    status = 'Sorry, reports sending is disabled in the add-on configuration. Please, ping an admin of the plugin!';
   }
     
   return status;
@@ -358,7 +397,7 @@ function updateRevisionHistory() {
  *                  that contains revision history
  */
 function getLogs(){
-  var logs = getStoreData("history")
+  var logs = getStoreData("history");
   return logs;
 }
 
@@ -368,16 +407,21 @@ function getLogs(){
  * To-Do: Allow clear history only for EPAM team only
  */
 function resetStoreData(){
-  var resetarray = [{
-    "sheet": "System",
-    "cell": "event",
-    "timestamp": new Date().valueOf(),
-    "date": Utilities.formatDate(new Date(), "GMT+04", "dd MMM, HH:mm"),
-    "author": getOwnName(),
-    "email": Session.getEffectiveUser().getEmail(),
-    "content": '<span style="color:red;font-weight:bold;">Revision history has been cleared!</span>'
-  }];
-  setStoreData("history", resetarray);
+  var resetarray = [];
+  if (isAdmin()) {
+    resetarray.push({
+      "sheet": "System",
+      "cell": "event",
+      "timestamp": new Date().valueOf(),
+      "date": Utilities.formatDate(new Date(), "GMT+04", "dd MMM, HH:mm"),
+      "author": getOwnName(),
+      "email": Session.getEffectiveUser().getEmail(),
+      "content": '<span style="color:red;font-weight:bold;">Revision history has been cleared!</span>'
+    });
+    setStoreData("history", resetarray);
+  } else {
+    Browser.msgBox('Sorry, only admins can clear Revision history!',  Browser.Buttons.OK);
+  }  
   return resetarray;
 }
 
@@ -458,4 +502,3 @@ function doGet(request) {
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
-

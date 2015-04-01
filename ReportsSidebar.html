@@ -169,7 +169,7 @@ table tr:hover td{
     <div class="block" id="report-table"><span>Processing...</span></div>
 
     <div class="block" id="button-bar">
-      <button class="action" id="send-report">Send via Email</button>
+      <button class="action" id="send-report">Send to Email</button>
     </div>
 
     <div class="block" id="status">
@@ -257,7 +257,7 @@ table tr:hover td{
    * previously saved in Document Properties
    */
   function sendUserReport() {
-    if (confirm("Do you wand to get the report to your email?")) {
+    if (confirm("Do you want to send the report to an admin email?")) {
       var from = $("#from").datepicker('getDate').getTime();
       var to = $("#to").datepicker('getDate').getTime() + 82800000 - 1;   //added 23:59:59 to cover the fill last day
       google.script.run
