@@ -18,7 +18,7 @@ var ADDON_TITLE = 'CTracker';
  * An admin email that is for a user who can configure add-on and enable 
  * it.
  */
-var ADMIN_EMAIL = 'drendov@gmail.com';
+var ADMIN_EMAIL = 'drendov@mymail.com';
 
 /**
  * A global constant 'notice' text to include with each email
